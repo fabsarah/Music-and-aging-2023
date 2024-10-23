@@ -1,5 +1,10 @@
 %% Now, let's start the analysis!
-% here, we're going to use the block_dex variable (tells us which block is
+% This picks up where step 1 (HMM_Estimation) left off. Most of the data here is from the 
+% structure array created in that step. If you're using this from "scratch", I've tried to 
+% give descriptions throughout of what the matrices are/their dimensionality
+% 
+%
+% First up, we're going to use the block_dex variable (tells us which block is
 % which for stimuli, ratings, etc) to mke some new matrices.
 
 tempages = Age; % this is a matrix with participants' ages 
@@ -17,7 +22,7 @@ for part = 1:80
     stop = start+23;% and the new stop position
 end
 clear start stop part tempdex
-fMRI_hmm4_music.block_dex = block_dex;
+fMRI_hmm4_music.block_dex = block_dex; %add it to the array
 
 %% And now use this index to organize the FO matrices:
 tempdata = fMRI_hmm4_music;
