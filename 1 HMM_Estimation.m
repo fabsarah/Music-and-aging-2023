@@ -167,7 +167,7 @@ gdata = fMRI_hmm4_music.Gamma;
 
 start = 1;%this is a long vector, so we need a counter to keep track of where we are
 for i = 1:length(vpath_Sub)
-    stop = start+(T{i}-1);%get the stopping point
+    stop = start+(T{i}-1);%get the stopping point from the T vector
     tempdata = vdata(start:stop);%get the relevant slice of data
     vpath_Sub{i} = tempdata';%add it to the new cell
     start = stop+1;%update the starting point
@@ -189,6 +189,7 @@ clear i G start stop j tempdata ntask
 
 fMRI_hmm4_music.Gamma_Sub = Gamma_Sub;
 fMRI_hmm4_music.vpath_Sub = vpath_Sub;
+
 %% Getting the vpath divided up by task
 % Here, I convert the vpath_Sub cell array into a matrix 
 music_vpath = cell2mat(vpath_Sub);
@@ -205,6 +206,7 @@ else
 end
 clear s piece* x y
 clear vpath_Sub vdata start i dex stop newdata index 
+
 %% 3.5: Life Times!
 data = fMRI_hmm4_music;
 Gamma = data.vpath;
@@ -213,6 +215,7 @@ options = data.options;
 lifetimes = getStateLifeTimes(Gamma, T, options, [],[],0);
 
 fMRI_hmm4_music.LT = lifetimes;
+
 %% 3.6 Gamma and FO by piece
 Gamma = fMRI_hmm4_music.Gamma_Sub;
 K = fMRI_hmm4_music.options.K;
@@ -226,6 +229,7 @@ for part = 1:length(Gamma)
     rest_FO(part,:) = FO;
 end
 clear part FO
+
 %% Using the above output to get task-wise data
 Gamma_music = Gamma;
 block_FO = cell(nparts,1);
@@ -242,6 +246,7 @@ for part = 1:length(Gamma_music)
     end
     Block_FO{part} = tempmat;
 end
+
 %% DATA CHECK
 part = 69;
 x = Gamma_music{part};
@@ -254,12 +259,14 @@ else
 end
 % we're good to go!
 clear x y piece part ntask time
+
 %% If the data are good, add them to the array:
 fMRI_hmm4_music.Gamma_music = Gamma_music;
 fMRI_hmm4_music.block_FO = Block_FO;
 
 clear data K gdata hmm Gamma* dims filename FO Indata lifetimes music_vpath... 
     N ndim npieces options rest_FO T temp* TProbs vpath Xi Block_FO
+
 %% PLOTTING: Vpath
 plotdata = fMRI_hmm4_music.music_vpath;
 K = fMRI_hmm4_music.K;
