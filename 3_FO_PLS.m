@@ -132,12 +132,12 @@ end
 option.method = 1;% mean-centred PLS
 option.num_perm = 500;
 option.num_boot = 100;
-nparts = {length(indata{1});length(indata{2})};% we now have different group lengths
+nparts = [length(indata{1});length(indata{2})];% we now have different group lengths
 ntask = 3;
 
-all_res = pls_analysis(indata,nparts,ntask,option);
-%young_res = pls_analysis({indata{1}},nparts{1},ntask,option);
-%old_res = pls_analysis({indata{2}},nparts{2},ntask,option);
+all_res = pls_analysis(indata,{nparts},ntask,option);
+%young_res = pls_analysis({indata{1}},nparts(1),ntask,option);
+%old_res = pls_analysis({indata{2}},nparts(2),ntask,option);
 
 %% Go up a block for the syntax to plot young and old separately. Stay here to plot everyone together:
 res = all_res;
