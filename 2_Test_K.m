@@ -215,7 +215,9 @@ title('Dot Product: K = 7, K = 4')
 
 % from here, I was able to conclude looking at the "loadings" in the matrix
 % that K4 and K7 had very similar estimations (all of the K7 states were
-% represented in K4)
+% represented in K4). I then went back to the state means and had a good look at them.
+% State 4 had a network with temporal and mesolimbic regions together, and we chose
+% this estimation based on prior work on music and reward. 
 
 %% For posterity, I also looked at the TP matrices:
 % TP Matrices: Assemble everything into a new object
