@@ -12,6 +12,7 @@
 % entire scan run). 
 
 load('Indata.mat');%get the data
+
 %% 1.1: Parameter Selection
 clear T
 K = 4; % number of states for this HMM run
@@ -22,6 +23,7 @@ for i = 1:length(Indata)
     T{i} = size(Indata{i},1);
 end
 clear i
+
 %% 1.2: Setting the initialization parameters
 clear options
 options = struct();
@@ -35,26 +37,38 @@ options.DirichletDiag = 10;
 options.pca = 0.95;% 95% of variance captured
 options.useParallel=1;% requires the parallel computing toolbox
 options.verbose = 1;
+
 %% Step 2: Run the HMM! 
 %This takes several hours locally and will kick up an error if T and Indata
 %are not the same length
+
 addpath(genpath('HMM-MAR-master'))
 [hmm, Gamma, Xi, vpath,~,~,~] = hmmmar(Indata,T,options);
+
 % Sending the output to a structure array
 fMRI_hmm4_music.hmm = hmm;
 fMRI_hmm4_music.Gamma = Gamma;
 fMRI_hmm4_music.vpath = vpath;
 fMRI_hmm4_music.Xi = Xi;
 filename = '/path_to_directory/fMRI_hmm4_music.mat';
-save(filename, 'fMRI_hmm4_music');
+save(filename, 'fMRI_hmm4_music');% DO. NOT. FORGET. TO. SAVE. THE. OUTPUT.
+
 %% Populating the structure with our input parameters and region labels
 fMRI_hmm4_music.T = T;
 fMRI_hmm4_music.options = options;
 fMRI_hmm4_music.labs = HMMfMRI.ST_labs;
-%% Step 3: Get te data!
+
+%% Calculate and store the free energy value (we'll use this when validating K in the next step)
+[fe,ll] = hmmfe(Indata,T,hmm,Gamma,Xi);
+fMRI_hmm4_music.fe = fe;
+fMRI)hmm4_music.ll = ll;
+clear data fe ll
+
+%% Step 3: Get the data!
 % The rest of this script is extracting code and running initial checks and
 % visualization on HMM outputs. We'll be sending everything into a giant
 % structure array...SAVE THIS OFTEN.
+
 %% 3.1: Get the FC and TP matrices!
 FC = cell(1,fMRI_hmm4_music.options.K);%initialize the output cell. We need K cells
 
@@ -68,6 +82,7 @@ TProbs = getTransProbs(fMRI_hmm4_music.hmm);
 fMRI_hmm4_music.FC = FC; %add FC to the structure array
 fMRI_hmm4_music.Tprobs = TProbs;%add TP to the array
 clear i S FC TProbs % make look nice
+
 %% PLOTTING: TP and FC matrices:
 
 K = fMRI_hmm4_music.options.K;
@@ -90,10 +105,8 @@ subplot(dims(1),dims(2),i+1)%start at 2 to not over-write the TP plot
 imagesc(fMRI_hmm4_music.FC{i})
 pbaspect([1 1 1])
 colorbar
-yticks(55:110:220)
-yticklabels({'Left','Right'})
-xticks(55:110:220)
-xticklabels({'Left','Right'})
+yticks([])
+xticks([])
 title(sprintf('State %d',i),'FontSize',14)
 end
 clear i S res K %make look nice
@@ -104,12 +117,16 @@ options = fMRI_hmm4_music.options;
 T = fMRI_hmm4_music.T;
 SR = getSwitchingRate(data,T,options);
 FO = getFractionalOccupancy(data,T,options,2);
+
 %This will give us long column vectors of data which we can break up later
 fMRI_hmm4_music.Metrics.SR = SR;% put it in the array!
 fMRI_hmm4_music.Metrics.FO = FO;
 clear data options T temp* SR FO start i dex array% make look nice
 
 %% 3.3: Grand mean of FC states, and mean centering each state
+% optional, but occasionally helpful. Can plot this using the 
+% syntax above for plotting the FC states
+
 K = fMRI_hmm4_music.options.K;
 FC = cat(3,fMRI_hmm4_music.FC{:});%rearranging the cell into a 3-d array
 for i = 1:K
@@ -128,33 +145,6 @@ end
 fMRI_hmm4_music.mc_FC = mc_FC;% put it in the structure array!
 
 clear data i tempnew mc_FC FC
-%% PLOTTING: Grand mean and mean-centred FC matrices!
-
-K = fMRI_hmm4_music.options.K;
-figure 
-
-subplot(3,5,1)
-imagesc(fMRI_hmm4_music.mean_FC)
-pbaspect([1 1 1])
-colorbar
-title(sprintf('Grand Mean FC, K = %d',K),'FontSize',14)
-yticks(55:110:220)
-yticklabels({'Left','Right'})
-xticks(55:110:220)
-xticklabels({'Left','Right'})
-
-for i = 1:K
-subplot(3,5,i+1)
-imagesc(fMRI_hmm4_music.mc_FC(:,:,i))
-pbaspect([1 1 1])
-colorbar
-yticks(55:110:220)
-yticklabels({'Left','Right'})
-xticks(55:110:220)
-xticklabels({'Left','Right'})
-title(sprintf('State %d, Mean-Centred',i),'FontSize',14)
-end
-clear i S res K
 
 %% 3.4: Vpath and Gamma by participant and task:
 % Reorganizing the vpath and Gamma
@@ -187,15 +177,17 @@ for j = 1:nparts
 end
 clear i G start stop j tempdata ntask
 
-fMRI_hmm4_music.Gamma_Sub = Gamma_Sub;
+fMRI_hmm4_music.Gamma_Sub = Gamma_Sub;% add it to the array!
 fMRI_hmm4_music.vpath_Sub = vpath_Sub;
 
 %% Getting the vpath divided up by task
 % Here, I convert the vpath_Sub cell array into a matrix 
 music_vpath = cell2mat(vpath_Sub);
 fMRI_hmm4_music.music_vpath = music_vpath;
+
 %% DATA CHECK:
-% check the data!
+% check the data to make sure we're getting what we think we're getting
+
 x = reshape(music_vpath',1,[]);
 x = x';
 y = vdata;
@@ -207,7 +199,7 @@ end
 clear s piece* x y
 clear vpath_Sub vdata start i dex stop newdata index 
 
-%% 3.5: Life Times!
+%% 3.5: Lifetimes!
 data = fMRI_hmm4_music;
 Gamma = data.vpath;
 T = data.T;
@@ -216,7 +208,7 @@ lifetimes = getStateLifeTimes(Gamma, T, options, [],[],0);
 
 fMRI_hmm4_music.LT = lifetimes;
 
-%% 3.6 Gamma and FO by piece
+%% 3.6 Gamma and FO by task
 Gamma = fMRI_hmm4_music.Gamma_Sub;
 K = fMRI_hmm4_music.options.K;
 T = fMRI_hmm4_music.T;
@@ -248,6 +240,9 @@ for part = 1:length(Gamma_music)
 end
 
 %% DATA CHECK
+% things here get overly specific fast - every time you see a number, it's
+% one of my indices that could not be easily automated
+
 part = 69;
 x = Gamma_music{part};
 y = reshape(x,K,time,24);
@@ -257,7 +252,7 @@ if isequal(x(:,1440-(time-1):1440),y(:,:,piece))%manually update this...super cr
 else
     disp('Unacceptable!')
 end
-% we're good to go!
+% If things are Acceptable, we're good to go!
 clear x y piece part ntask time
 
 %% If the data are good, add them to the array:
