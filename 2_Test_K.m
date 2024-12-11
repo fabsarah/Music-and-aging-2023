@@ -11,6 +11,7 @@ load('fMRI_hmm12_music.mat')
 load('fMRI_hmm15_music.mat')
 load('fMRI_hmm20_music.mat')
 load('HMMfMRI.mat')
+
 %% Step 1: get our giant timeseries vector
 music_data = HMMfMRI.ts.ts_music;
 music_data([9,26,30,34,69,86]) = [];
@@ -19,32 +20,49 @@ for i = 1:length(Indata)
     Indata{i} = Indata{i}';
 end
 clear i music_data
-%% Free Energy Recalculate
-addpath(genpath('HMM-MAR-master'))
-dex = 1;
-fepc = nan(11,1);
-llc = nan(11,1);
-%% Do this manually. Like a fool. 
-data = fMRI_hmm20_music;
-[fe,ll] = hmmfe(Indata,data.T,data.hmm,data.Gamma,data.Xi);
-fepc(dex) = fe;
-llc(dex) = mean(ll);
-dex = dex+1;
-clear data fe ll
-%%
+
+%% Assemble the fe and ll values into a new object
+fepc(1) = fMRI_hmm3_music.fe;
+fepc(2) = fMRI_hmm4_music.fe;
+fepc(3) = fMRI_hmm5_music.fe;
+fepc(4) = fMRI_hmm6_music.fe;
+fepc(5) = fMRI_hmm7_music.fe;
+fepc(6) = fMRI_hmm8_music.fe;
+fepc(7) = fMRI_hmm9_music.fe;
+fepc(8) = fMRI_hmm10_music.fe;
+fepc(9) = fMRI_hmm12_music.fe;
+fepc(10) = fMRI_hmm15_music.fe;
+fepc(11) = fMRI_hmm20_music.fe;
+
+
+llc(1) = fMRI_hmm3_music.ll;
+llc(2) = fMRI_hmm4_music.ll;
+llc(3) = fMRI_hmm5_music.ll;
+llc(4) = fMRI_hmm6_music.ll;
+llc(5) = fMRI_hmm7_music.ll;
+llc(6) = fMRI_hmm8_music.ll;
+llc(7) = fMRI_hmm9_music.ll;
+llc(8) = fMRI_hmm10_music.ll;
+llc(9) = fMRI_hmm12_music.ll;
+llc(10) = fMRI_hmm15_music.ll;
+llc(11) = fMRI_hmm20_music.ll;
+
 K_tests.fe = fepc;
 K_tests.llc = llc;
 
-%% Plot!
+%% Plot the FE values!
 klabs = {'K3','K4','K5','K6','K7','K8','K9','K10','K12','K15','K20'};
 figure
+
+%fepc = K_tests.fe
 %subplot(1,2,1)
 bar(normalize(fepc))
 grid on
 xticklabels(klabs)
 title('Free Energy K Comparison')
 clear dex llc
-%% Assemble everything into a new object
+
+%% Assemble the FO values into the new object
 K_tests.FO{1} = fMRI_hmm3_music.Metrics.FO;
 K_tests.FO{2} = fMRI_hmm4_music.Metrics.FO;
 K_tests.FO{3} = fMRI_hmm5_music.Metrics.FO;
@@ -57,6 +75,7 @@ K_tests.FO{9} = fMRI_hmm12_music.Metrics.FO;
 K_tests.FO{10} = fMRI_hmm15_music.Metrics.FO;
 K_tests.FO{11} = fMRI_hmm20_music.Metrics.FO;
 K_tests.labels = {'K3';'K4';'K5';'K6';'K7';'K8';'K9';'K10';'K12';'K15';'K20'};
+
 %% Average them
 % for i = 1:11
 %     tempdata = K_tests.FO{i};
@@ -64,46 +83,56 @@ K_tests.labels = {'K3';'K4';'K5';'K6';'K7';'K8';'K9';'K10';'K12';'K15';'K20'};
 %     tempdata = nanmean(tempdata,3);
 %     K_tests.FO{i} = tempdata;
 % end
-%% Run FO PLSes
-addpath(genpath('Pls'))
-%% Get the age indices
+
+%% Run initial PLSes on the FO data
+% in this study, we were looking and pre- and post-intervention data, so 
+% we sliced up the data based on intervention status. First, we need to 
+% get the data into PLS shape:
+
+%% Get the intervention indices
 idx_pre = fMRI_hmm4_music.pre_dex==1;
 idx_post = fMRI_hmm4_music.pre_dex==0;
-idx_old = fMRI_hmm4_music.Ages>40;
-idx_young = fMRI_hmm4_music.Ages<40;
+
 %% Slice it up
-Pre_FO_young = cell(11,1);
-Pre_FO_old = cell(11,1);
+Pre_FO = cell(11,1);
+Post_FO = cell(11,1);
 
 for i = 1:11
-    Pre_FO_young{i} = K_tests.FO{i}(idx_pre==1&idx_young==1);
-    Pre_FO_old{i} = K_tests.FO{i}(idx_pre==1&idx_old==1);
+    Pre_FO{i} = K_tests.FO{i}(idx_pre==1);
+    Post_FO{i} = K_tests.FO{i}(idx_post==1);
 end
-K_tests.Pre_FO_young = Pre_FO_young;
-K_tests.Pre_FO_old = Pre_FO_old;
+K_tests.Pre_FO = Pre_FO;
+K_tests.Post_FO = Post_FO;
 clear i idx*
-%% Appetizer PLS
-addpath(genpath('Pls'))
+
+%% Run a PLS for every FO value
+% This will loop through every K estimation's FO data, run a PLS,
+% and save the PLS output into a new array:
+
+addpath(genpath('Pls'))% see the ReadMe for where to download this
 FO_data = K_tests;
 FO_results = cell(11,1);
+
 for k = 1:11
-    indata = {K_tests.Pre_FO_young{k};K_tests.Pre_FO_old{k}};
+    indata = {K_tests.Pre_FO{k};K_tests.Post_FO{k}};% stack the data so that pre is on the top, post is on the bottom
     numsubs = nan(1,length(indata));
     for i = 1:length(indata)
         tempdata = indata{i};
-        tempdata(isnan(tempdata)) = [];
+        tempdata(isnan(tempdata)) = [];% remove any nans
         indata{i} = tempdata;
-        numsubs(i) = size(tempdata,1);
+        numsubs(i) = size(tempdata,1);% get the number of subjects
     end
     clear i option
-    option.method = 1;
+    option.method = 1;% option 1 for mean-centred PLS
     option.num_perm = 500;
     option.num_boot = 100;
+    numcond = 2;% how many conditions we have (here, 2: pre- and post-intervention)
 
-    K_res = pls_analysis(indata,numsubs,1,option);
-    FO_results{k} = K_res;
+    K_res = pls_analysis(indata,numsubs,numcond,option);% run the PLS
+    FO_results{k} = K_res;% save the results
 end
 clear i k indata numsubs tempdata option K_res
+
 %% Assemble and plot p values
 FO_p = nan(1,11);
 for k = 1:11
@@ -111,13 +140,21 @@ for k = 1:11
     FO_p(k) = temp;
 end
 clear k temp
+
 %%
 figure
 bar(FO_p)
 grid on
 xticklabels(K_tests.labels)
 title('PLS p values variable K')
+
+% if you have a clear "winner" here, great! Proceed with that K. 
+% Life is rarely that easy, though, so let's continue to explore:
+
 %% Now correlate usc and vsc
+% these are the row and column scores from the PLS. We can correlate them
+% to get a "concensus" matrix showing us each PLS output's similarity:
+
 LV_corr = nan(1,11);
 for k = 1:11
     u = FO_results{k}.usc;
@@ -126,6 +163,7 @@ for k = 1:11
     LV_corr(k) = tempcorr(2,1);
 end
 clear k tempcorr u v
+
 %%
 figure
 bar(LV_corr)
@@ -134,28 +172,23 @@ grid on
 xticklabels(K_tests.labels)
 title('USC VSC Correlations, LV1 Variable K')
 
-%% STATIS tests
-FCs = [fMRI_hmm4_music.FC,fMRI_hmm7_music.FC];
-FCs = cat(3,FCs{:});
-%%
-FC_res = distatis2(FCs);
-%%
-figure
-shower_tile_plot(FC_res.C);
-colorbar
-title('Similarity matrix, K = 4 and K = 7')
-% a little difficult to interpret. State 6 in K = 7 not similar to anything
-%% Try the dot product
+% from here, I had two estimations (4 and 7) that were similar:
+
+%% Try the dot product between similar estimations
+% extract the state means for the similar estimations:
+
 addpath(genpath('HMM-MAR-master'))
 res7 = fMRI_hmm7_music;
 m7 = getMean(res7.hmm);
 res4 = fMRI_hmm4_music;
 m4 = getMean(res4.hmm);
 clear res7 res4
-%%
+
+%% Normalize them:
 m7 = normalize(m7,1);
 m4 = normalize(m4,1);
-%%
+
+%% Look at them:
 figure
 subplot(1,2,1)
 imagesc(m4)
@@ -170,13 +203,25 @@ colorbar
 title('K = 7')
 ylabel('Region')
 xlabel('State')
-%%
+
+%% Calculate the dot product:
 mdot = m7'*m4;
+
+% and look at it:
 figure
 imagesctxt(mdot)
 colorbar
 title('Dot Product: K = 7, K = 4')
-%% TP Matrices: Assemble everything into a new object
+
+% from here, I was able to conclude looking at the "loadings" in the matrix
+% that K4 and K7 had very similar estimations (all of the K7 states were
+% represented in K4)
+
+%% For posterity, I also looked at the TP matrices:
+% TP Matrices: Assemble everything into a new object
+% we already have TP saved in the array, but juuust in case one were to run 
+% the HMM estimation without extracting all the metrics, it's quick to re-estimate:
+
 K_tests.TP{1} = getTransProbs(fMRI_hmm3_music.hmm);
 K_tests.TP{2} = getTransProbs(fMRI_hmm4_music.hmm);
 K_tests.TP{3} = getTransProbs(fMRI_hmm5_music.hmm);
@@ -189,124 +234,42 @@ K_tests.TP{9} = getTransProbs(fMRI_hmm12_music.hmm);
 K_tests.TP{10} = getTransProbs(fMRI_hmm15_music.hmm);
 K_tests.TP{11} = getTransProbs(fMRI_hmm20_music.hmm);
 K_tests.labels = {'K3';'K4';'K5';'K6';'K7';'K8';'K9';'K10';'K12';'K15';'K20'};
-%%
+
+%% Interrogating the graph properties of the TP matrices:
+% this section is a little more exploratory. The above tests were sufficient for us 
+% to find an optimal K, but it's also possible to use graph metrics to explore 
+% properties of the TP matrices and the state FC matrices (not shown here)
+
 addpath(genpath('BCT'))
-STR_test = cell(10,1);
-DEG_test = cell(10,1);
-CC_test = cell(10,1);
-for part = 1:10
-    tempdata = K_tests.TP{part};
-    thresh = prctile(abs(tempdata),50,1);
+STR_test = cell(11,1);% strength
+DEG_test = cell(11,1);% degree
+CC_test = cell(11,1);% cclustering coefficient
+for est = 1:11
+    tempdata = K_tests.TP{est};
+    thresh = prctile(abs(tempdata),50,1);%a very generous threshold of the 50th percentile
     tempdata(abs(tempdata)<thresh) = 0;
     str = strengths_dir(tempdata);
     [indeg,outdeg] = degrees_dir(tempdata);
     cc = clustering_coef_wd(tempdata);
-    STR_test{part} = str;
-    DEG_test{part} = [indeg;outdeg];
-    CC_test{part} = cc;
+    STR_test{est} = str;
+    DEG_test{est} = [indeg;outdeg];
+    CC_test{est} = cc;
 end
-clear part tempdata thresh str indeg outdeg cc
-%%
-part = 2;
+clear est tempdata thresh str indeg outdeg cc
+
+%% Look at specific estimations:
+est = 2;
 figure
 %subplot(1,2,1)
-bar(normalize(STR_test{part}))
+bar(normalize(STR_test{est}))
 grid on
 ylabel('Strength')
 xlabel('State')
-title(sprintf('State Strength, %s',K_tests.labels{part}))
+title(sprintf('State Strength, %s',K_tests.labels{est}))
 
 % subplot(1,2,2)
-% bar(DEG_test{part})
+% bar(DEG_test{est})
 % grid on
 % ylabel('Strength')
 % xlabel('State')
-% title(sprintf('State Strength, %s',K_tests.labels{part}))
-
-%% Assemble everything into a new object
-K_tests.FC{1} = fMRI_hmm3_music.FC;
-K_tests.FC{2} = fMRI_hmm4_music.FC;
-K_tests.FC{3} = fMRI_hmm5_music.FC;
-K_tests.FC{4} = fMRI_hmm6_music.FC;
-K_tests.FC{5} = fMRI_hmm7_music.FC;
-K_tests.FC{6} = fMRI_hmm8_music.FC;
-K_tests.FC{7} = fMRI_hmm9_music.FC;
-K_tests.FC{8} = fMRI_hmm10_music.FC;
-K_tests.FC{9} = fMRI_hmm12_music.FC;
-K_tests.FC{10} = fMRI_hmm15_music.FC;
-K_tests.FC{11} = fMRI_hmm20_music.FC;
-%%
-K_tests.mFC{1} = fMRI_hmm3_music.mean_FC;
-K_tests.mFC{2} = fMRI_hmm4_music.mean_FC;
-K_tests.mFC{3} = fMRI_hmm5_music.mean_FC;
-K_tests.mFC{4} = fMRI_hmm6_music.mean_FC;
-K_tests.mFC{5} = fMRI_hmm7_music.mean_FC;
-K_tests.mFC{6} = fMRI_hmm8_music.mean_FC;
-K_tests.mFC{7} = fMRI_hmm9_music.mean_FC;
-K_tests.mFC{8} = fMRI_hmm10_music.mean_FC;
-K_tests.mFC{9} = fMRI_hmm12_music.mean_FC;
-K_tests.mFC{10} = fMRI_hmm15_music.mean_FC;
-K_tests.mFC{11} = fMRI_hmm20_music.mean_FC;
-
-%% STATIS the mean FC
-mean_FC = cat(3,K_tests.mFC{:});
-mean_FC(isinf(mean_FC)) = 0;
-%%
-addpath(genpath('Pls'))
-res_mFC = distatis2(mean_FC);
-K_tests.res_MFC = res_mFC;
-%% Plot the similarity matrices
-figure
-shower_tile_plot(res_mFC.C);
-caxis([0.5 1])
-colorbar
-pbaspect([1 1 1])
-xticks(1.5:1:11.5)
-xticklabels(K_tests.labels)
-yticks(1.5:1:11.5)
-yticklabels(flipud(K_tests.labels))
-title('Similarity Matrix: mean FC for all Ks')
-%% Get the dissimilarity matrix
-DSM = 1-res_mFC.C;
-%% Big ass STATIS
-start = 1;
-Kdex = [3,4,5,6,7,8,9,10,12,15,20];
-Big_FC = nan(220,220,sum(Kdex));
-
-for i = 1:length(Kdex)
-    tempdata = K_tests.FC{i};
-    tempdata = cat(3,tempdata{:});
-    tempdata(isinf(tempdata)) = 0;
-    tempdata(isnan(tempdata)) = 0;
-    Big_FC(:,:,start:start+Kdex(i)-1) = tempdata;
-    start = start+Kdex(i);
-end
-clear i tempdata start
-%%
-res_BigFC = distatis2(Big_FC);
-
-figure
-imagesc(res_BigFC.C);
-yticks([])
-xticks([])
-colorbar
-
-%% Get the dissimilarity matrix
-DSM_BFC = 1-res_BigFC.C;
-DSM_BFC(isinf(DSM_BFC)) = 0;
-K_index = nan(sum(Kdex),1);
-start = 1;
-for i = 1:length(Kdex)
-    K_index(start:start+(Kdex(i)-1),1) = Kdex(i);
-    start = start+Kdex(i);
-end
-%clear i start
-
-%%
-DI = dunns(10,DSM_BFC,K_index);
-%% Correlating the right things this time:
-res7 = fMRI_hmm7_music.PrePost_PLS.results.Pre;
-res4 = fMRI_hmm4_music.PrePost_PLS.results.Pre;
-
-corr7 = corrcoef(res7.usc,res7.vsc);
-corr4 = corrcoef(res4.usc,res4.vsc);
+% title(sprintf('State Strength, %s',K_tests.labels{est}))
